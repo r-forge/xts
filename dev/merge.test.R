@@ -47,8 +47,10 @@ giantxts <- .xts(as.numeric(1:1e6),as.numeric(1:1e6), 'POSIXct')
 #system.time(isOrdered(giantxts))
 #gc()
 system.time(.Call('do_merge_xts', giantxts, giantxts, TRUE))
-system.time(merge(giantxts, giantxts))
-system.time(merge(giantxts, giantxts, giantxts))
+system.time(merge(giantxts, giantxts)) # a new 2 million obs
+system.time(merge(giantxts, giantxts, giantxts)) # 3 million obs
+giantxts <- .xts(as.numeric(1:3e6),as.numeric(1:3e6), 'POSIXct')
+system.time(merge(giantxts, giantxts)) # a new 6 million obs
 system.time(merge(merge(giantxts, giantxts), giantxts))
 #gc()
 #zz <- as.zoo(giantxts)
