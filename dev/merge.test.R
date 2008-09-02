@@ -13,6 +13,8 @@ load('m.rda')
   # that can handle:
   #  suffixes=
   #
+  if(length(all) == 1)
+    all <- rep(all,2)
 
   dots <- list(...)
   if(length(all) != length(dots)+1)
@@ -23,12 +25,12 @@ load('m.rda')
     suffixes <- NULL
 
   if(length(dots) > 3) {
-    x <- .Call('do_merge_xts', x, y, all[1], fill[1])
+    x <- .Call('do_merge_xts', x, y, all, fill[1])
 #    cnames <- c( paste(suffixes[1],colnames(dots[[1]]),sep="."),
 #                 paste(suffixes[2],colnames(dots[[2]]),sep=".") )
     for(i in 3:length(dots)) {
 #      cnames <- c( cnames, paste(suffixes[i],colnames(dots[[i]]),sep=".") )
-      x <- .Call('do_merge_xts', x, dots[[i]], all[i+1], fill[1])
+      x <- .Call('do_merge_xts', x, dots[[i]], all, fill[1])
     }
     # colnames is _horribly_ slow.  this has to be moved to C
 #    colnames(x) <- cnames
@@ -36,7 +38,7 @@ load('m.rda')
   } else {
 #    cnames <- c( paste(suffixes[1],colnames(dots[[1]]),sep="."),
 #                 paste(suffixes[2],colnames(dots[[2]]),sep=".") )
-    x <- .Call('do_merge_xts', x, y, all[[1]], fill[1])
+    x <- .Call('do_merge_xts', x, y, all, fill[1])
     
 #    colnames(x) <- cnames
     return(x)
@@ -80,6 +82,7 @@ x1
 x2
 
 (mx <- merge(merge(x1,x2),x3))
+(mx <- merge(merge(x1,x2),x3,all=FALSE))
 
 str(mx)
 
@@ -96,12 +99,13 @@ str(mx)
 #merge(x2,x3)
 
 gc()
-giantxts <- .xts(as.numeric(1:1e6),as.numeric(1:1e6), 'POSIXct')
+giantxts <- .xts(1:1e6,1:1e6, 'POSIXct')
 #system.time(isOrdered(giantxts))
 gc()
 system.time(.Call('do_merge_xts', giantxts, giantxts, TRUE, NA))
 gc();
 system.time(merge(giantxts, giantxts)) # a new 2 million obs
+dim(merge(giantxts, giantxts)) # a new 2 million obs
 gc();
 system.time(merge(giantxts, giantxts, giantxts)) # 3 million obs
 gc(); rm(giantxts); gc()
