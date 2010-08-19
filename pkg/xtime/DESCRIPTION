@@ -1,10 +1,10 @@
 Package: xtime
 Type: Package
-Title: What the package does (short line)
-Version: 1.0
+Title: eXtensible Time Class
+Version: 0.7-5
 Date: 2010-07-29
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Author: Jeffrey A. Ryan
+Maintainer: Jeffrey A. Ryan <jeff.a.ryan@gmail.com>
+Description: Provide universal time handling for R's time classes, using ISO8601 formating conventions.
+License: GPL-2
 LazyLoad: yes
