@@ -1,8 +1,8 @@
 Package: xtime
 Type: Package
 Title: eXtensible Time Class
-Version: 0.7-5
-Date: 2010-07-29
+Version: 0.3
+Date: 2010-08-19
 Author: Jeffrey A. Ryan
 Maintainer: Jeffrey A. Ryan <jeff.a.ryan@gmail.com>
 Description: Provide universal time handling for R's time classes, using ISO8601 formating conventions.
