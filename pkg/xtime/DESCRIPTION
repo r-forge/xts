@@ -3,6 +3,7 @@ Type: Package
 Title: eXtensible Time Class
 Version: 0.3
 Date: 2010-08-19
+Enhances: chron
 Author: Jeffrey A. Ryan
 Maintainer: Jeffrey A. Ryan <jeff.a.ryan@gmail.com>
 Description: Provide universal time handling for R's time classes, using ISO8601 formating conventions.

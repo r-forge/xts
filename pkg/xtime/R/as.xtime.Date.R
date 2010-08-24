@@ -7,3 +7,8 @@ function(x, ...) {
   tm
 }
 
+as.xtime.dates <-
+function(x, ...) {
+    structure(as.numeric(as.POSIXct(strptime(as.character(x),"(%m/%d/%y %H:%M:%S)"))),
+              tzone=Sys.getenv("TZ"), tclass=class(x), class="xtime")
+}

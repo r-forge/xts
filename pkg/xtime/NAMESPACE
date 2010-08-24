@@ -17,6 +17,7 @@ export(
 
 S3method(as.xtime,  Date)
 S3method(as.xtime,  POSIXt)
+S3method(as.xtime,  dates)
 S3method(as.xtime,  xtime)
 
 S3method(as.Date,   xtime)

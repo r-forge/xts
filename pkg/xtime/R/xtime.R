@@ -42,8 +42,9 @@ function(x) {
   if("yearqtr" %in% tc)
     as.yearqtr(structure(x, class=c("POSIXct","POSIXt"), tzone=tzone))
   else
-  if("chron" %in% tc)
-    as.chron(structure(x, class=c("POSIXct","POSIXt"), tzone=NULL))
+  if("chron" %in% tc) {
+    as.chron(format(structure(x, class=c("POSIXct","POSIXt"), tzone="")))
+  }
 }
 
 Sys.xtime <-
