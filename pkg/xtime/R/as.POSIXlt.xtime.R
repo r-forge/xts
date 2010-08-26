@@ -1,5 +1,5 @@
 as.POSIXlt.xtime <-
-function(x, ...) {
-  as.POSIXlt(structure(unclass(x), class=c("POSIXct","POSIXt")))
+function(x, tz="", ...) {
+  as.POSIXlt(structure(unclass(x), class=c("POSIXct","POSIXt")), tz="")
 }
 
