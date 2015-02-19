@@ -278,471 +278,472 @@ plot.xts <- function(x,
                      bg.col="#FFFFFF",
                      grid2="#F5F5F5",
                      legend.loc=NULL){
-  
-  # Small multiples with multiple pages behavior occurs when multi.panel is
-  # an integer. (i.e. multi.panel=2 means to iterate over the data in a step
-  # size of 2 and plot 2 panels on each page
-  # Make recursive calls and return
-  if(is.numeric(multi.panel)){
-    multi.panel <- min(NCOL(x), multi.panel)
-    idx <- seq.int(1L, NCOL(x), 1L)
-    chunks <- split(idx, ceiling(seq_along(idx)/multi.panel))
-    
-    if(!is.null(panels) && nchar(panels) > 0){
-      # we will plot the panels, but not plot the returns by column
-      multi.panel <- FALSE
-    } else {
-      # we will plot the returns by column, but not the panels
-      multi.panel <- TRUE
-      panels <- NULL
-      
-      if(yaxis.same){
-        # If we want the same y-axis and a FUN is specified, we need to
-        # apply the transformation first to compute the range for the y-axis
-        if(!is.null(FUN) && nchar(FUN) > 0){
-          fun <- match.fun(FUN)
-          .formals <- formals(fun)
-          .formals <- modify.args(formals=.formals, arglist=list(...), dots=TRUE)
-          if("R" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, R=x, dots=TRUE)
-          .formals$... <- NULL
-          R <- try(do.call(fun, .formals), silent=TRUE)
-          if(inherits(R, "try-error")) { 
-            message(paste("FUN function failed with message", R))
-            ylim <- range(x[subset], na.rm=TRUE)
-          } else {
-            ylim <- range(R[subset], na.rm=TRUE)
-          }
-        } else {
-          # set the ylim based on the data passed into the x argument
-          ylim <- range(x[subset], na.rm=TRUE)
-        }
-      }
-    }
-    
-    for(i in 1:length(chunks)){
-      tmp <- chunks[[i]]
-      p <- plot.xts(x=x[,tmp], 
-                    y=y,
-                    ...=...,
-                    subset=subset,
-                    FUN=FUN,
-                    panels=panels,
-                    multi.panel=multi.panel,
-                    col=col,
-                    up.col=up.col,
-                    dn.col=dn.col,
-                    type=type,
-                    lty=lty,
-                    lwd=lwd,
-                    lend=lend,
-                    main=main,  
-                    clev=clev,
-                    cex=cex, 
-                    cex.axis=cex.axis,
-                    mar=mar, 
-                    srt=srt,
-                    xaxis.las=xaxis.las,
-                    ylim=ylim,
-                    yaxis.same=yaxis.same,
-                    yaxis.left=yaxis.left,
-                    yaxis.right=yaxis.right,
-                    grid.ticks.on=grid.ticks.on,
-                    grid.ticks.lwd=grid.ticks.lwd,
-                    grid.ticks.lty=grid.ticks.lty,
-                    grid.col=grid.col,
-                    labels.col=labels.col,
-                    format.labels=format.labels,
-                    shading=shading,
-                    bg.col=bg.col,
-                    grid2=grid2,
-                    legend.loc=legend.loc)
-      if(i < length(chunks))
-        print(p)
-    }
-    # NOTE: return here so we don't draw another chart
-    return(p)
-  }
-  
-  cs <- new.replot_xts()
-  if(is.null(grid.ticks.on)) {
-    xs <- x[subset]
-    major.grid <- c(years=nyears(xs),
-                    months=nmonths(xs),
-                    days=ndays(xs))
-    grid.ticks.on <- names(major.grid)[rev(which(major.grid < 30))[1]]
-  } #else grid.ticks.on <- theme$grid.ticks.on
-  #label.bg <- theme$col$label.bg
-  
-  # define a subset function
-  cs$subset <- function(x) {
-    if(FALSE) {set_ylim <- get_ylim <- set_xlim <- Env <-function(){} }  # appease R parser?
-    if(missing(x)) {
-      x <- "" #1:NROW(Env$xdata)
-    }
-    Env$xsubset <<- x
-    # set_xlim(c(1,NROW(Env$xdata[Env$xsubset])))
-    # non equally spaced x-axis
-    set_xlim(range(Env$xycoords$x, na.rm=TRUE))
-    ylim <- get_ylim()
-    for(y in seq(2,length(ylim),by=2)) {
-      if(!attr(ylim[[y]],'fixed'))
-        ylim[[y]] <- structure(c(Inf,-Inf),fixed=FALSE)
-    }
-    lapply(Env$actions,
-           function(x) {
-             frame <- abs(attr(x, "frame"))
-             fixed <- attr(ylim[[frame]],'fixed')
-             #fixed <- attr(x, "fixed")
-             if(frame %% 2 == 0 && !fixed) {
-               lenv <- attr(x,"env")
-               if(is.list(lenv)) lenv <- lenv[[1]]
-               min.tmp <- min(ylim[[frame]][1],range(lenv$xdata[Env$xsubset], na.rm=TRUE)[1],na.rm=TRUE)
-               max.tmp <- max(ylim[[frame]][2],range(lenv$xdata[Env$xsubset], na.rm=TRUE)[2],na.rm=TRUE)
-               ylim[[frame]] <<- structure(c(min.tmp,max.tmp),fixed=fixed)
-             }
-           })
-    # reset all ylim values, by looking for range(env[[1]]$xdata)
-    # xdata should be either coming from Env or if lenv, lenv
-    set_ylim(ylim)
-  }
-  environment(cs$subset) <- environment(cs$get_asp)
-  
-  # add theme and charting parameters to Env
-  if(multi.panel){
-    cs$set_asp(NCOL(x))
-  } else {
-    cs$set_asp(3)
-  }
-  cs$Env$cex <- cex
-  cs$Env$mar <- mar
-  cs$Env$clev = min(clev+0.01,1) # (0,1]
-  cs$Env$theme$shading <- shading
-  cs$Env$theme$up.col <- up.col
-  cs$Env$theme$dn.col <- dn.col
-  if (hasArg(colorset)){
-    cs$Env$theme$col <- match.call(expand.dots=TRUE)$colorset
-  } else {
-    cs$Env$theme$col <- col
-  }
-  cs$Env$theme$rylab <- yaxis.right
-  cs$Env$theme$lylab <- yaxis.left
-  cs$Env$theme$bg <- bg.col
-  cs$Env$theme$grid <- grid.col
-  cs$Env$theme$grid2 <- grid2
-  cs$Env$theme$labels <- labels.col
-  cs$Env$theme$srt <- srt
-  cs$Env$theme$xaxis.las <- xaxis.las
-  cs$Env$theme$cex.axis <- cex.axis
-  cs$Env$format.labels <- format.labels
-  cs$Env$grid.ticks.on <- grid.ticks.on
-  cs$Env$grid.ticks.lwd <- grid.ticks.lwd
-  cs$Env$grid.ticks.lty <- grid.ticks.lty
-  cs$Env$type <- type
-  cs$Env$lty <- lty
-  cs$Env$lwd <- lwd
-  cs$Env$lend <- lend
-  cs$Env$legend.loc <- legend.loc
-  cs$Env$call_list <- list()
-  cs$Env$call_list[[1]] <- match.call()
-  
-  # Do some checks on x
-  if(is.character(x))
-    stop("'x' must be a time-series object")
-  
-  # If we detect an OHLC object, we should call quantmod::chart_Series
-  
-  # Raw returns data passed into function
-  cs$Env$xdata <- x
-  cs$Env$xsubset <- subset
-  cs$Env$column_names <- colnames(x)
-  cs$Env$nobs <- NROW(cs$Env$xdata)
-  cs$Env$main <- main
-  
-  # non equally spaced x-axis
-  xycoords <- xy.coords(.index(cs$Env$xdata[cs$Env$xsubset]), 
-                        cs$Env$xdata[cs$Env$xsubset][,1])
-  cs$Env$xycoords <- xycoords
-  cs$Env$xlim <- range(xycoords$x, na.rm=TRUE)
-  cs$Env$xstep <- diff(xycoords$x[1:2])
-  
-  # Compute transformation if specified by panel argument
-  # rough prototype for calling a function for the main "panel"
-  if(!is.null(FUN)){
-    fun <- match.fun(FUN)
-    .formals <- formals(fun)
-    .formals <- modify.args(formals=.formals, arglist=list(...), dots=TRUE)
-    if("R" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, R=x, dots=TRUE)
-    if("x" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, x=x, dots=TRUE)
-    .formals$... <- NULL
-    R <- try(do.call(fun, .formals), silent=TRUE)
-    if(inherits(R, "try-error")) { 
-      message(paste("FUN function failed with message", R))
-      cs$Env$R <- x
-    } else {
-      cs$Env$R <- R
-    }
-  } else {
-    cs$Env$R <- x
-  }
-  
-  # Set xlim based on the raw returns data passed into function
-  # cs$set_xlim(c(1,NROW(cs$Env$xdata[subset])))
-  # non equally spaced x-axis
-  cs$set_xlim(cs$Env$xlim)
-  
-  
-  # Set ylim based on the transformed data
-  # chart_Series uses fixed=FALSE and add_* uses fixed=TRUE, not sure why or
-  # which is best.
-  if(is.null(ylim)){
-    if(isTRUE(multi.panel)){
-      if(yaxis.same){
-        # set the ylim for the first panel based on all the data
-        cs$set_ylim(list(structure(range(cs$Env$R[subset], na.rm=TRUE),fixed=TRUE)))
-      } else {
-        # set the ylim for the first panel based on the first column
-        cs$set_ylim(list(structure(range(cs$Env$R[,1][subset], na.rm=TRUE),fixed=TRUE))) 
-      }
-    } else {
-      # set the ylim based on all the data if this is not a multi.panel plot
-      cs$set_ylim(list(structure(range(cs$Env$R[subset], na.rm=TRUE),fixed=TRUE)))
-    }
-    cs$Env$constant_ylim <- range(cs$Env$R[subset], na.rm=TRUE)
-  } else {
-    # use the ylim arg passed in
-    cs$set_ylim(list(structure(ylim, fixed=TRUE)))
-    cs$Env$constant_ylim <- ylim
-  }
-  
-  cs$set_frame(1,FALSE)
-  # axis_ticks function to label lower frequency ranges/grid lines
-  #cs$Env$axis_ticks <- function(xdata,xsubset) {
-  #  ticks <- diff(axTicksByTime2(xdata[xsubset],labels=FALSE))/2 + 
-  #    last(axTicksByTime2(xdata[xsubset],labels=TRUE),-1)
-  #  if(min(diff(ticks)) < max(strwidth(names(ticks)))) {
-  #    ticks <- unname(ticks)
-  #  }
-  #  ticks
-  #}
-  
-  # compute the x-axis ticks
-  cs$add(expression(atbt <- axTicksByTime2(xdata[xsubset]),
-                    segments(xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
-                             get_ylim()[[2]][1],
-                             xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
-                             get_ylim()[[2]][2], 
-                             col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)),
-         clip=FALSE,expr=TRUE)
-  
-  # Add frame for the chart "header" to display the name and start/end dates
-  cs$add_frame(0,ylim=c(0,1),asp=0.5)
-  cs$set_frame(1)
-  
-  # add observation level ticks on x-axis if < 400 obs.
-  cs$add(expression(if(NROW(xdata[xsubset])<400) 
-  {axis(1,at=xycoords$x,labels=FALSE,col=theme$grid2,tcl=0.3)}),expr=TRUE)
-  
-  # add "month" or "month.abb"
-  cs$add(expression(axt <- axTicksByTime(xdata[xsubset],format.labels=format.labels),
-                    axis(1,
-                         at=xycoords$x[axt], #axTicksByTime(xdata[xsubset]),
-                         labels=names(axt), #axTicksByTime(xdata[xsubset],format.labels=format.labels)),
-                         las=theme$xaxis.las, lwd.ticks=1, mgp=c(3,1.5,0), 
-                         tcl=-0.4, cex.axis=theme$cex.axis)),
-         expr=TRUE)
-  
-  # add main and start/end dates
-  #if((isTRUE(multi.panel)) | (multi.panel == 1) | (NCOL(x) == 1))
-  #  cs$Env$main <- cs$Env$column_names[1] else cs$Env$main <- main
-  
-  text.exp <- c(expression(text(xlim[1],0.5,main,font=2,col='#444444',offset=0,cex=1.1,pos=4)),
-                expression(text(xlim[2],0.5,
-                                paste(start(xdata[xsubset]),end(xdata[xsubset]),sep=" / "),
-                                col=1,adj=c(0,0),pos=2)))
-  cs$add(text.exp, env=cs$Env, expr=TRUE)
-  
-  cs$set_frame(2)
-  # define function for y-axis labels
-  #cs$Env$grid_lines <- function(xdata, xsubset) {
-  #  ylim <- range(xdata[xsubset])
-  #  p <- pretty(ylim, 5)
-  #  p[p > ylim[1] & p < ylim[2]]
-  #}
-  
-  cs$Env$y_grid_lines <- function(ylim) { 
-    #pretty(range(xdata[xsubset]))
-    p <- pretty(ylim,5)
-    p[p > ylim[1] & p < ylim[2]]
-  }
-  
-  # add y-axis grid lines and labels
-  exp <- expression(segments(xlim[1], 
-                             y_grid_lines(get_ylim()[[2]]), 
-                             xlim[2], 
-                             y_grid_lines(get_ylim()[[2]]), 
-                             col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty))
-  if(yaxis.left){
-    exp <- c(exp, 
-             # left y-axis labels
-             expression(text(xlim[1]-xstep*2/3-max(strwidth(y_grid_lines(get_ylim()[[2]]))), 
-                             y_grid_lines(get_ylim()[[2]]),
-                             noquote(format(y_grid_lines(get_ylim()[[2]]), justify="right")),
-                             col=theme$labels, srt=theme$srt, offset=0, pos=4, 
-                             cex=theme$cex.axis, xpd=TRUE)))
-  }
-  if(yaxis.right){
-    exp <- c(exp, 
-             # right y-axis labels
-             expression(text(xlim[2]+xstep*2/3,
-                             y_grid_lines(get_ylim()[[2]]),
-                             noquote(format(y_grid_lines(get_ylim()[[2]]), justify="right")),
-                             col=theme$labels, srt=theme$srt, offset=0, pos=4, 
-                             cex=theme$cex.axis, xpd=TRUE)))
-  }
-  cs$add(exp, env=cs$Env, expr=TRUE)
-  
-  # add main series
-  cs$set_frame(2)
-  if(isTRUE(multi.panel)){
-    # We need to plot the first "panel" here because the plot area is
-    # set up based on the code above
-    lenv <- new.env()
-    lenv$xdata <- cs$Env$R[,1][subset]
-    lenv$label <- colnames(cs$Env$R[,1])
-    lenv$type <- cs$Env$type
-    if(yaxis.same){
-      lenv$ylim <- cs$Env$constant_ylim
-    } else {
-      lenv$ylim <- range(cs$Env$R[,1][subset], na.rm=TRUE)
-    }
-    exp <- expression(chart.lines(xdata, 
-                                  type=type, 
-                                  lty=lty,
-                                  lwd=lwd,
-                                  lend=lend,
-                                  col=theme$col, 
-                                  up.col=theme$up.col, 
-                                  dn.col=theme$dn.col,
-                                  legend.loc=legend.loc))
-    # Add expression for the main plot
-    cs$add(exp, env=c(lenv,cs$Env), expr=TRUE)
-    text.exp <- expression(text(x=xycoords$x[2],
-                                y=ylim[2]*0.9,
-                                labels=label,
-                                adj=c(0,0),cex=1,offset=0,pos=4))
-    cs$add(text.exp,env=c(lenv, cs$Env),expr=TRUE)
-    
-    if(NCOL(cs$Env$xdata) > 1){
-      for(i in 2:NCOL(cs$Env$xdata)){
-        # create a local environment
-        lenv <- new.env()
-        lenv$xdata <- cs$Env$R[,i][subset]
-        lenv$label <- cs$Env$column_names[i]
-        if(yaxis.same){
-          lenv$ylim <- cs$Env$constant_ylim
-        } else {
-          lenv$ylim <- range(cs$Env$R[,i][subset], na.rm=TRUE)
-        }
-        lenv$type <- cs$Env$type
-        
-        # Add a small frame
-        cs$add_frame(ylim=c(0,1),asp=0.25)
-        cs$next_frame()
-        text.exp <- expression(text(x=xlim[1],
-                                    y=0.5,
-                                    labels="",
-                                    adj=c(0,0),cex=0.9,offset=0,pos=4))
-        cs$add(text.exp, env=c(lenv,cs$Env), expr=TRUE)
-        
-        # Add the frame for the sub-plots
-        # Set the ylim based on the (potentially) transformed data in cs$Env$R
-        cs$add_frame(ylim=lenv$ylim, asp=NCOL(cs$Env$xdata), fixed=TRUE)
-        cs$next_frame()
-        
-        exp <- expression(chart.lines(xdata[xsubset], 
-                                      type=type, 
-                                      lty=lty,
-                                      lwd=lwd,
-                                      lend=lend,
-                                      col=theme$col, 
-                                      up.col=theme$up.col, 
-                                      dn.col=theme$dn.col,
-                                      legend.loc=legend.loc))
-        
-        # define function to plot the y-axis grid lines
-        lenv$y_grid_lines <- function(ylim) { 
-          #pretty(range(xdata[xsubset]))
-          p <- pretty(ylim,5)
-          p[p > ylim[1] & p < ylim[2]]
-        }
-        
-        # NOTE 'exp' was defined earlier as chart.lines
-        exp <- c(exp, 
-                 # y-axis grid lines
-                 expression(segments(xlim[1],
-                                     y_grid_lines(ylim),
-                                     xlim[2], 
-                                     y_grid_lines(ylim), 
-                                     col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)),
-                 # x-axis grid lines
-                 expression(atbt <- axTicksByTime2(xdata[xsubset]),
-                            segments(xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
-                                     ylim[1],
-                                     xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
-                                     ylim[2], 
-                                     col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)))
-        if(yaxis.left){
-          exp <- c(exp, 
-                   # y-axis labels/boxes
-                   expression(text(xlim[1]-xstep*2/3-max(strwidth(y_grid_lines(ylim))), 
-                                   y_grid_lines(ylim),
-                                   noquote(format(y_grid_lines(ylim),justify="right")),
-                                   col=theme$labels, srt=theme$srt, offset=0, 
-                                   pos=4, cex=theme$cex.axis, xpd=TRUE)))
-        }
-        if(yaxis.right){
-          exp <- c(exp, 
-                   expression(text(xlim[2]+xstep*2/3, y_grid_lines(ylim),
-                                   noquote(format(y_grid_lines(ylim),justify="right")),
-                                   col=theme$labels, srt=theme$srt, offset=0,
-                                   pos=4, cex=theme$cex.axis, xpd=TRUE)))
-        }
-        cs$add(exp,env=c(lenv, cs$Env),expr=TRUE,no.update=TRUE)
-        text.exp <- expression(text(x=xycoords$x[2],
-                                    y=ylim[2]*0.9,
-                                    labels=label,
-                                    adj=c(0,0),cex=1,offset=0,pos=4))
-        cs$add(text.exp,env=c(lenv, cs$Env),expr=TRUE)
-      }
-    }
-  } else {
-    if(type == "h" & NCOL(x) > 1) 
-      warning("only the univariate series will be plotted")
-    cs$add(expression(chart.lines(R[xsubset], 
-                                  type=type, 
-                                  lty=lty,
-                                  lwd=lwd,
-                                  lend=lend,
-                                  col=theme$col,
-                                  up.col=theme$up.col, 
-                                  dn.col=theme$dn.col,
-                                  legend.loc=legend.loc)),expr=TRUE)
-    assign(".xts_chob", cs, .plotxtsEnv)
-  }
-  
-  # Plot the panels or default to a simple line chart
-  if(!is.null(panels) && nchar(panels) > 0) {
-    panels <- parse(text=panels, srcfile=NULL)
-    for( p in 1:length(panels)) {
-      if(length(panels[p][[1]][-1]) > 0) {
-        cs <- eval(panels[p])
-      } else {
-        cs <- eval(panels[p])
-      }
-    }
-  }
-  assign(".xts_chob", cs, .plotxtsEnv)
-  cs
+  .Deprecated("xts::plot.xts", "xts", msg="xtsExtra::plot.xts is deprecated, use xts::plot.xts")
+#   
+#   # Small multiples with multiple pages behavior occurs when multi.panel is
+#   # an integer. (i.e. multi.panel=2 means to iterate over the data in a step
+#   # size of 2 and plot 2 panels on each page
+#   # Make recursive calls and return
+#   if(is.numeric(multi.panel)){
+#     multi.panel <- min(NCOL(x), multi.panel)
+#     idx <- seq.int(1L, NCOL(x), 1L)
+#     chunks <- split(idx, ceiling(seq_along(idx)/multi.panel))
+#     
+#     if(!is.null(panels) && nchar(panels) > 0){
+#       # we will plot the panels, but not plot the returns by column
+#       multi.panel <- FALSE
+#     } else {
+#       # we will plot the returns by column, but not the panels
+#       multi.panel <- TRUE
+#       panels <- NULL
+#       
+#       if(yaxis.same){
+#         # If we want the same y-axis and a FUN is specified, we need to
+#         # apply the transformation first to compute the range for the y-axis
+#         if(!is.null(FUN) && nchar(FUN) > 0){
+#           fun <- match.fun(FUN)
+#           .formals <- formals(fun)
+#           .formals <- modify.args(formals=.formals, arglist=list(...), dots=TRUE)
+#           if("R" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, R=x, dots=TRUE)
+#           .formals$... <- NULL
+#           R <- try(do.call(fun, .formals), silent=TRUE)
+#           if(inherits(R, "try-error")) { 
+#             message(paste("FUN function failed with message", R))
+#             ylim <- range(x[subset], na.rm=TRUE)
+#           } else {
+#             ylim <- range(R[subset], na.rm=TRUE)
+#           }
+#         } else {
+#           # set the ylim based on the data passed into the x argument
+#           ylim <- range(x[subset], na.rm=TRUE)
+#         }
+#       }
+#     }
+#     
+#     for(i in 1:length(chunks)){
+#       tmp <- chunks[[i]]
+#       p <- plot.xts(x=x[,tmp], 
+#                     y=y,
+#                     ...=...,
+#                     subset=subset,
+#                     FUN=FUN,
+#                     panels=panels,
+#                     multi.panel=multi.panel,
+#                     col=col,
+#                     up.col=up.col,
+#                     dn.col=dn.col,
+#                     type=type,
+#                     lty=lty,
+#                     lwd=lwd,
+#                     lend=lend,
+#                     main=main,  
+#                     clev=clev,
+#                     cex=cex, 
+#                     cex.axis=cex.axis,
+#                     mar=mar, 
+#                     srt=srt,
+#                     xaxis.las=xaxis.las,
+#                     ylim=ylim,
+#                     yaxis.same=yaxis.same,
+#                     yaxis.left=yaxis.left,
+#                     yaxis.right=yaxis.right,
+#                     grid.ticks.on=grid.ticks.on,
+#                     grid.ticks.lwd=grid.ticks.lwd,
+#                     grid.ticks.lty=grid.ticks.lty,
+#                     grid.col=grid.col,
+#                     labels.col=labels.col,
+#                     format.labels=format.labels,
+#                     shading=shading,
+#                     bg.col=bg.col,
+#                     grid2=grid2,
+#                     legend.loc=legend.loc)
+#       if(i < length(chunks))
+#         print(p)
+#     }
+#     # NOTE: return here so we don't draw another chart
+#     return(p)
+#   }
+#   
+#   cs <- new.replot_xts()
+#   if(is.null(grid.ticks.on)) {
+#     xs <- x[subset]
+#     major.grid <- c(years=nyears(xs),
+#                     months=nmonths(xs),
+#                     days=ndays(xs))
+#     grid.ticks.on <- names(major.grid)[rev(which(major.grid < 30))[1]]
+#   } #else grid.ticks.on <- theme$grid.ticks.on
+#   #label.bg <- theme$col$label.bg
+#   
+#   # define a subset function
+#   cs$subset <- function(x) {
+#     if(FALSE) {set_ylim <- get_ylim <- set_xlim <- Env <-function(){} }  # appease R parser?
+#     if(missing(x)) {
+#       x <- "" #1:NROW(Env$xdata)
+#     }
+#     Env$xsubset <<- x
+#     # set_xlim(c(1,NROW(Env$xdata[Env$xsubset])))
+#     # non equally spaced x-axis
+#     set_xlim(range(Env$xycoords$x, na.rm=TRUE))
+#     ylim <- get_ylim()
+#     for(y in seq(2,length(ylim),by=2)) {
+#       if(!attr(ylim[[y]],'fixed'))
+#         ylim[[y]] <- structure(c(Inf,-Inf),fixed=FALSE)
+#     }
+#     lapply(Env$actions,
+#            function(x) {
+#              frame <- abs(attr(x, "frame"))
+#              fixed <- attr(ylim[[frame]],'fixed')
+#              #fixed <- attr(x, "fixed")
+#              if(frame %% 2 == 0 && !fixed) {
+#                lenv <- attr(x,"env")
+#                if(is.list(lenv)) lenv <- lenv[[1]]
+#                min.tmp <- min(ylim[[frame]][1],range(lenv$xdata[Env$xsubset], na.rm=TRUE)[1],na.rm=TRUE)
+#                max.tmp <- max(ylim[[frame]][2],range(lenv$xdata[Env$xsubset], na.rm=TRUE)[2],na.rm=TRUE)
+#                ylim[[frame]] <<- structure(c(min.tmp,max.tmp),fixed=fixed)
+#              }
+#            })
+#     # reset all ylim values, by looking for range(env[[1]]$xdata)
+#     # xdata should be either coming from Env or if lenv, lenv
+#     set_ylim(ylim)
+#   }
+#   environment(cs$subset) <- environment(cs$get_asp)
+#   
+#   # add theme and charting parameters to Env
+#   if(multi.panel){
+#     cs$set_asp(NCOL(x))
+#   } else {
+#     cs$set_asp(3)
+#   }
+#   cs$Env$cex <- cex
+#   cs$Env$mar <- mar
+#   cs$Env$clev = min(clev+0.01,1) # (0,1]
+#   cs$Env$theme$shading <- shading
+#   cs$Env$theme$up.col <- up.col
+#   cs$Env$theme$dn.col <- dn.col
+#   if (hasArg(colorset)){
+#     cs$Env$theme$col <- match.call(expand.dots=TRUE)$colorset
+#   } else {
+#     cs$Env$theme$col <- col
+#   }
+#   cs$Env$theme$rylab <- yaxis.right
+#   cs$Env$theme$lylab <- yaxis.left
+#   cs$Env$theme$bg <- bg.col
+#   cs$Env$theme$grid <- grid.col
+#   cs$Env$theme$grid2 <- grid2
+#   cs$Env$theme$labels <- labels.col
+#   cs$Env$theme$srt <- srt
+#   cs$Env$theme$xaxis.las <- xaxis.las
+#   cs$Env$theme$cex.axis <- cex.axis
+#   cs$Env$format.labels <- format.labels
+#   cs$Env$grid.ticks.on <- grid.ticks.on
+#   cs$Env$grid.ticks.lwd <- grid.ticks.lwd
+#   cs$Env$grid.ticks.lty <- grid.ticks.lty
+#   cs$Env$type <- type
+#   cs$Env$lty <- lty
+#   cs$Env$lwd <- lwd
+#   cs$Env$lend <- lend
+#   cs$Env$legend.loc <- legend.loc
+#   cs$Env$call_list <- list()
+#   cs$Env$call_list[[1]] <- match.call()
+#   
+#   # Do some checks on x
+#   if(is.character(x))
+#     stop("'x' must be a time-series object")
+#   
+#   # If we detect an OHLC object, we should call quantmod::chart_Series
+#   
+#   # Raw returns data passed into function
+#   cs$Env$xdata <- x
+#   cs$Env$xsubset <- subset
+#   cs$Env$column_names <- colnames(x)
+#   cs$Env$nobs <- NROW(cs$Env$xdata)
+#   cs$Env$main <- main
+#   
+#   # non equally spaced x-axis
+#   xycoords <- xy.coords(.index(cs$Env$xdata[cs$Env$xsubset]), 
+#                         cs$Env$xdata[cs$Env$xsubset][,1])
+#   cs$Env$xycoords <- xycoords
+#   cs$Env$xlim <- range(xycoords$x, na.rm=TRUE)
+#   cs$Env$xstep <- diff(xycoords$x[1:2])
+#   
+#   # Compute transformation if specified by panel argument
+#   # rough prototype for calling a function for the main "panel"
+#   if(!is.null(FUN)){
+#     fun <- match.fun(FUN)
+#     .formals <- formals(fun)
+#     .formals <- modify.args(formals=.formals, arglist=list(...), dots=TRUE)
+#     if("R" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, R=x, dots=TRUE)
+#     if("x" %in% names(.formals)) .formals <- modify.args(formals=.formals, arglist=NULL, x=x, dots=TRUE)
+#     .formals$... <- NULL
+#     R <- try(do.call(fun, .formals), silent=TRUE)
+#     if(inherits(R, "try-error")) { 
+#       message(paste("FUN function failed with message", R))
+#       cs$Env$R <- x
+#     } else {
+#       cs$Env$R <- R
+#     }
+#   } else {
+#     cs$Env$R <- x
+#   }
+#   
+#   # Set xlim based on the raw returns data passed into function
+#   # cs$set_xlim(c(1,NROW(cs$Env$xdata[subset])))
+#   # non equally spaced x-axis
+#   cs$set_xlim(cs$Env$xlim)
+#   
+#   
+#   # Set ylim based on the transformed data
+#   # chart_Series uses fixed=FALSE and add_* uses fixed=TRUE, not sure why or
+#   # which is best.
+#   if(is.null(ylim)){
+#     if(isTRUE(multi.panel)){
+#       if(yaxis.same){
+#         # set the ylim for the first panel based on all the data
+#         cs$set_ylim(list(structure(range(cs$Env$R[subset], na.rm=TRUE),fixed=TRUE)))
+#       } else {
+#         # set the ylim for the first panel based on the first column
+#         cs$set_ylim(list(structure(range(cs$Env$R[,1][subset], na.rm=TRUE),fixed=TRUE))) 
+#       }
+#     } else {
+#       # set the ylim based on all the data if this is not a multi.panel plot
+#       cs$set_ylim(list(structure(range(cs$Env$R[subset], na.rm=TRUE),fixed=TRUE)))
+#     }
+#     cs$Env$constant_ylim <- range(cs$Env$R[subset], na.rm=TRUE)
+#   } else {
+#     # use the ylim arg passed in
+#     cs$set_ylim(list(structure(ylim, fixed=TRUE)))
+#     cs$Env$constant_ylim <- ylim
+#   }
+#   
+#   cs$set_frame(1,FALSE)
+#   # axis_ticks function to label lower frequency ranges/grid lines
+#   #cs$Env$axis_ticks <- function(xdata,xsubset) {
+#   #  ticks <- diff(axTicksByTime2(xdata[xsubset],labels=FALSE))/2 + 
+#   #    last(axTicksByTime2(xdata[xsubset],labels=TRUE),-1)
+#   #  if(min(diff(ticks)) < max(strwidth(names(ticks)))) {
+#   #    ticks <- unname(ticks)
+#   #  }
+#   #  ticks
+#   #}
+#   
+#   # compute the x-axis ticks
+#   cs$add(expression(atbt <- axTicksByTime2(xdata[xsubset]),
+#                     segments(xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
+#                              get_ylim()[[2]][1],
+#                              xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
+#                              get_ylim()[[2]][2], 
+#                              col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)),
+#          clip=FALSE,expr=TRUE)
+#   
+#   # Add frame for the chart "header" to display the name and start/end dates
+#   cs$add_frame(0,ylim=c(0,1),asp=0.5)
+#   cs$set_frame(1)
+#   
+#   # add observation level ticks on x-axis if < 400 obs.
+#   cs$add(expression(if(NROW(xdata[xsubset])<400) 
+#   {axis(1,at=xycoords$x,labels=FALSE,col=theme$grid2,tcl=0.3)}),expr=TRUE)
+#   
+#   # add "month" or "month.abb"
+#   cs$add(expression(axt <- axTicksByTime(xdata[xsubset],format.labels=format.labels),
+#                     axis(1,
+#                          at=xycoords$x[axt], #axTicksByTime(xdata[xsubset]),
+#                          labels=names(axt), #axTicksByTime(xdata[xsubset],format.labels=format.labels)),
+#                          las=theme$xaxis.las, lwd.ticks=1, mgp=c(3,1.5,0), 
+#                          tcl=-0.4, cex.axis=theme$cex.axis)),
+#          expr=TRUE)
+#   
+#   # add main and start/end dates
+#   #if((isTRUE(multi.panel)) | (multi.panel == 1) | (NCOL(x) == 1))
+#   #  cs$Env$main <- cs$Env$column_names[1] else cs$Env$main <- main
+#   
+#   text.exp <- c(expression(text(xlim[1],0.5,main,font=2,col='#444444',offset=0,cex=1.1,pos=4)),
+#                 expression(text(xlim[2],0.5,
+#                                 paste(start(xdata[xsubset]),end(xdata[xsubset]),sep=" / "),
+#                                 col=1,adj=c(0,0),pos=2)))
+#   cs$add(text.exp, env=cs$Env, expr=TRUE)
+#   
+#   cs$set_frame(2)
+#   # define function for y-axis labels
+#   #cs$Env$grid_lines <- function(xdata, xsubset) {
+#   #  ylim <- range(xdata[xsubset])
+#   #  p <- pretty(ylim, 5)
+#   #  p[p > ylim[1] & p < ylim[2]]
+#   #}
+#   
+#   cs$Env$y_grid_lines <- function(ylim) { 
+#     #pretty(range(xdata[xsubset]))
+#     p <- pretty(ylim,5)
+#     p[p > ylim[1] & p < ylim[2]]
+#   }
+#   
+#   # add y-axis grid lines and labels
+#   exp <- expression(segments(xlim[1], 
+#                              y_grid_lines(get_ylim()[[2]]), 
+#                              xlim[2], 
+#                              y_grid_lines(get_ylim()[[2]]), 
+#                              col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty))
+#   if(yaxis.left){
+#     exp <- c(exp, 
+#              # left y-axis labels
+#              expression(text(xlim[1]-xstep*2/3-max(strwidth(y_grid_lines(get_ylim()[[2]]))), 
+#                              y_grid_lines(get_ylim()[[2]]),
+#                              noquote(format(y_grid_lines(get_ylim()[[2]]), justify="right")),
+#                              col=theme$labels, srt=theme$srt, offset=0, pos=4, 
+#                              cex=theme$cex.axis, xpd=TRUE)))
+#   }
+#   if(yaxis.right){
+#     exp <- c(exp, 
+#              # right y-axis labels
+#              expression(text(xlim[2]+xstep*2/3,
+#                              y_grid_lines(get_ylim()[[2]]),
+#                              noquote(format(y_grid_lines(get_ylim()[[2]]), justify="right")),
+#                              col=theme$labels, srt=theme$srt, offset=0, pos=4, 
+#                              cex=theme$cex.axis, xpd=TRUE)))
+#   }
+#   cs$add(exp, env=cs$Env, expr=TRUE)
+#   
+#   # add main series
+#   cs$set_frame(2)
+#   if(isTRUE(multi.panel)){
+#     # We need to plot the first "panel" here because the plot area is
+#     # set up based on the code above
+#     lenv <- new.env()
+#     lenv$xdata <- cs$Env$R[,1][subset]
+#     lenv$label <- colnames(cs$Env$R[,1])
+#     lenv$type <- cs$Env$type
+#     if(yaxis.same){
+#       lenv$ylim <- cs$Env$constant_ylim
+#     } else {
+#       lenv$ylim <- range(cs$Env$R[,1][subset], na.rm=TRUE)
+#     }
+#     exp <- expression(chart.lines(xdata, 
+#                                   type=type, 
+#                                   lty=lty,
+#                                   lwd=lwd,
+#                                   lend=lend,
+#                                   col=theme$col, 
+#                                   up.col=theme$up.col, 
+#                                   dn.col=theme$dn.col,
+#                                   legend.loc=legend.loc))
+#     # Add expression for the main plot
+#     cs$add(exp, env=c(lenv,cs$Env), expr=TRUE)
+#     text.exp <- expression(text(x=xycoords$x[2],
+#                                 y=ylim[2]*0.9,
+#                                 labels=label,
+#                                 adj=c(0,0),cex=1,offset=0,pos=4))
+#     cs$add(text.exp,env=c(lenv, cs$Env),expr=TRUE)
+#     
+#     if(NCOL(cs$Env$xdata) > 1){
+#       for(i in 2:NCOL(cs$Env$xdata)){
+#         # create a local environment
+#         lenv <- new.env()
+#         lenv$xdata <- cs$Env$R[,i][subset]
+#         lenv$label <- cs$Env$column_names[i]
+#         if(yaxis.same){
+#           lenv$ylim <- cs$Env$constant_ylim
+#         } else {
+#           lenv$ylim <- range(cs$Env$R[,i][subset], na.rm=TRUE)
+#         }
+#         lenv$type <- cs$Env$type
+#         
+#         # Add a small frame
+#         cs$add_frame(ylim=c(0,1),asp=0.25)
+#         cs$next_frame()
+#         text.exp <- expression(text(x=xlim[1],
+#                                     y=0.5,
+#                                     labels="",
+#                                     adj=c(0,0),cex=0.9,offset=0,pos=4))
+#         cs$add(text.exp, env=c(lenv,cs$Env), expr=TRUE)
+#         
+#         # Add the frame for the sub-plots
+#         # Set the ylim based on the (potentially) transformed data in cs$Env$R
+#         cs$add_frame(ylim=lenv$ylim, asp=NCOL(cs$Env$xdata), fixed=TRUE)
+#         cs$next_frame()
+#         
+#         exp <- expression(chart.lines(xdata[xsubset], 
+#                                       type=type, 
+#                                       lty=lty,
+#                                       lwd=lwd,
+#                                       lend=lend,
+#                                       col=theme$col, 
+#                                       up.col=theme$up.col, 
+#                                       dn.col=theme$dn.col,
+#                                       legend.loc=legend.loc))
+#         
+#         # define function to plot the y-axis grid lines
+#         lenv$y_grid_lines <- function(ylim) { 
+#           #pretty(range(xdata[xsubset]))
+#           p <- pretty(ylim,5)
+#           p[p > ylim[1] & p < ylim[2]]
+#         }
+#         
+#         # NOTE 'exp' was defined earlier as chart.lines
+#         exp <- c(exp, 
+#                  # y-axis grid lines
+#                  expression(segments(xlim[1],
+#                                      y_grid_lines(ylim),
+#                                      xlim[2], 
+#                                      y_grid_lines(ylim), 
+#                                      col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)),
+#                  # x-axis grid lines
+#                  expression(atbt <- axTicksByTime2(xdata[xsubset]),
+#                             segments(xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
+#                                      ylim[1],
+#                                      xycoords$x[atbt], #axTicksByTime2(xdata[xsubset]),
+#                                      ylim[2], 
+#                                      col=theme$grid, lwd=grid.ticks.lwd, lty=grid.ticks.lty)))
+#         if(yaxis.left){
+#           exp <- c(exp, 
+#                    # y-axis labels/boxes
+#                    expression(text(xlim[1]-xstep*2/3-max(strwidth(y_grid_lines(ylim))), 
+#                                    y_grid_lines(ylim),
+#                                    noquote(format(y_grid_lines(ylim),justify="right")),
+#                                    col=theme$labels, srt=theme$srt, offset=0, 
+#                                    pos=4, cex=theme$cex.axis, xpd=TRUE)))
+#         }
+#         if(yaxis.right){
+#           exp <- c(exp, 
+#                    expression(text(xlim[2]+xstep*2/3, y_grid_lines(ylim),
+#                                    noquote(format(y_grid_lines(ylim),justify="right")),
+#                                    col=theme$labels, srt=theme$srt, offset=0,
+#                                    pos=4, cex=theme$cex.axis, xpd=TRUE)))
+#         }
+#         cs$add(exp,env=c(lenv, cs$Env),expr=TRUE,no.update=TRUE)
+#         text.exp <- expression(text(x=xycoords$x[2],
+#                                     y=ylim[2]*0.9,
+#                                     labels=label,
+#                                     adj=c(0,0),cex=1,offset=0,pos=4))
+#         cs$add(text.exp,env=c(lenv, cs$Env),expr=TRUE)
+#       }
+#     }
+#   } else {
+#     if(type == "h" & NCOL(x) > 1) 
+#       warning("only the univariate series will be plotted")
+#     cs$add(expression(chart.lines(R[xsubset], 
+#                                   type=type, 
+#                                   lty=lty,
+#                                   lwd=lwd,
+#                                   lend=lend,
+#                                   col=theme$col,
+#                                   up.col=theme$up.col, 
+#                                   dn.col=theme$dn.col,
+#                                   legend.loc=legend.loc)),expr=TRUE)
+#     assign(".xts_chob", cs, .plotxtsEnv)
+#   }
+#   
+#   # Plot the panels or default to a simple line chart
+#   if(!is.null(panels) && nchar(panels) > 0) {
+#     panels <- parse(text=panels, srcfile=NULL)
+#     for( p in 1:length(panels)) {
+#       if(length(panels[p][[1]][-1]) > 0) {
+#         cs <- eval(panels[p])
+#       } else {
+#         cs <- eval(panels[p])
+#       }
+#     }
+#   }
+#   assign(".xts_chob", cs, .plotxtsEnv)
+#   cs
 }
 
 #' Add a time series to an existing xts plot
